@@ -1,1 +1,3 @@
-console.log("What's up budddy?");
+let app = require("./server");
+
+app.start();
