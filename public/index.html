@@ -1,11 +1,81 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+	<title>ACE in Action</title>
+	<link href="https://fonts.googleapis.com/css?family=Roboto+Mono&display=swap" rel="stylesheet">
+
+	<style type="text/css">
+		#editor { 
+				position: absolute;
+				top: 0;
+				right: 0;
+				bottom: 0;
+				left: 0;
+		}
+
+		.ace_editor {
+			font-family: "Roboto Mono", Monospace;
+		}
+	</style>
+</head>
 <body>
-    <textarea id="content" rows='10' cols='80'></textarea>
-    
-    <script src="/socket.io/socket.io.js"></script>
-    <script type="text/javascript">
-        var socket = io();
-    </script>
+
+	<div id="editor"></div>
+		
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.7/ace.js"></script>
+	<script>
+		var typing_timer;
+		var	socket = io();
+		var	editor = ace.edit("editor");
+		editor.setFontSize(14);
+		editor.setTheme("ace/theme/twilight");
+
+		socket.on("check-unqiue-editor", function (data) {
+			var url = window.location.href;
+			url = url.split("/");
+
+			if(url[url.length - 1] === data.url) {
+				var ret_data = {
+					s: socket,
+					l: editor.getSession().getDocument().getAllLines()
+				};
+				socket.emit("found-unique-editor", ret_data);
+			}
+		});
+
+		socket.on("init-editor", function(data) {
+			editor.getSession().setDocument(new ace.define.modules["ace/document"].Document(data));
+		})
+
+		socket.on("get-delta", function (delta) {
+			console.log(delta);
+
+			var lines = editor.getSession().getDocument().getLines(delta.start.row, delta.end.row);
+			var dummy_doc = new ace.define.modules["ace/document"].Document(lines);
+			
+			delta.end.row -= delta.start.row;
+			delta.start.row = 0;
+			
+			dummy_doc.applyDeltas(delta);
+			var dummy_lines = dummy_doc.getAllLines();
+
+			var flag = false;
+			for(var i = 0; i < lines.length; i++) {
+				if(lines[i] !== dummy_lines[i]) {
+					flag = true;
+					break;
+				}
+			}
+
+			if(flag) {
+				editor.getSession().getDocument().applyDeltas(delta);
+			}
+		});
+
+		editor.on("change", function (delta) {
+			socket.emit("set-delta", delta);
+		});
+	</script>
 </body>
 </html>

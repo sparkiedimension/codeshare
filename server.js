@@ -4,18 +4,27 @@ let path        = require( 'path' );
 let http        = require( 'http' ).createServer( serv_app );
 let io          = require( 'socket.io' )( http );
 
-serv_app.get( '/', function( req, res ) {
+serv_app.get( '/:unique_editor', function( req, res ) {
     let abs_path = path.join( __dirname, 'public/index.html' );
+    
+    io.on('connection', function(socket) {
+        console.log( "a user connected" );
+
+        socket.broadcast.emit("check-unique-editor", {url: req.params.unique_editor});
+
+        socket.on('set-delta', function(delta) {
+            console.log(delta);
+            io.sockets.emit("get-delta", delta);
+        });
+    });
+
+    io.on("found-unique-editor", function(data) {
+        data.s.broadcast.emit("init-editor", data.l);
+    });
+
     res.sendFile( abs_path );
 });
 
-io.on( 'connection', function( socket ) {
-    console.log( "a user connected" ); 
-   
-    socket.on( 'disconnect', function() {
-        console.log( "user disconnect" );
-    });
-});
 
 module.exports = {
     start: function() {
